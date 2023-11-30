@@ -19,6 +19,7 @@ import { UserByIdPipe } from 'src/pipes/UserById.pipe';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { AdminGuard, OwnerGuard } from './channels.guard';
 import { ChannelInvitation } from './entities/channel-invitation.entity';
+import { ChannelInfoDto } from './dto/channel-info.dto';
 
 @UseGuards(AuthGuard)
 @Controller('channels')
@@ -45,12 +46,14 @@ export class ChannelsController {
   }
 
   @Get(':channel_id')
-  getOneChannelWithUsers(@Param('channel_id', ParseIntPipe) channelId: number): Promise<Channel> {
+  getOneChannelWithUsers(
+    @Param('channel_id', ParseIntPipe) channelId: number,
+  ): Promise<ChannelInfoDto> {
     return this.channelService.findOneChannelWithUsers(channelId);
   }
 
   @Get()
-  getAllChannels(): Promise<Channel[]> {
+  getAllChannels(): Promise<ChannelInfoDto[]> {
     return this.channelService.findAllChannels();
   }
 

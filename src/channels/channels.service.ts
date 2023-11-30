@@ -13,6 +13,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ChannelDto } from './dto/channel.dto';
 import * as bcrypt from 'bcrypt';
 import { ChannelInvitation, InvitationStatus } from './entities/channel-invitation.entity';
+import { ChannelInfoDto } from './dto/channel-info.dto';
 
 @Injectable()
 export class ChannelsService {
@@ -71,9 +72,13 @@ export class ChannelsService {
     return bcrypt.hash(password, salt);
   }
 
-  async findAllChannels(): Promise<Channel[]> {
+  async findAllChannels(): Promise<ChannelInfoDto[]> {
     const channels = await this.channelRepository.find();
-    return channels;
+    return channels.map((channel) => ({
+      id: channel.id,
+      title: channel.title,
+      type: channel.type,
+    }));
   }
 
   async findOneChannel(channelId: number): Promise<Channel> {
@@ -82,7 +87,7 @@ export class ChannelsService {
     return channel;
   }
 
-  async findOneChannelWithUsers(channelId: number): Promise<Channel> {
+  async findOneChannelWithUsers(channelId: number): Promise<ChannelInfoDto> {
     const channelWithUsers = await this.channelRepository.findOne({
       where: { id: channelId },
       relations: ['channelRelations', 'channelRelations.user'],
@@ -92,7 +97,12 @@ export class ChannelsService {
       throw new NotFoundException('채널을 찾을 수 없습니다!');
     }
 
-    return channelWithUsers;
+    return {
+      id: channelWithUsers.id,
+      title: channelWithUsers.title,
+      type: channelWithUsers.type,
+      users: channelWithUsers.channelRelations.map((relation) => relation.user),
+    };
   }
 
   async exitChannel(user: User, channelId: number): Promise<void> {
@@ -111,6 +121,19 @@ export class ChannelsService {
 
     // 채널에서 유저 삭제
     await this.channelRelationRepository.remove(channelRelation);
+
+    const invitation = await this.channelInvitationRepository.findOne({
+      where: {
+        user,
+        channel: { id: channelId },
+        status: InvitationStatus.Accepted,
+      },
+    });
+
+    if (invitation) {
+      invitation.status = InvitationStatus.Refused;
+      await this.channelInvitationRepository.save(invitation);
+    }
 
     if (ifTranferNeeded) {
       // 채널에 남은 유저 있는지 확인.
